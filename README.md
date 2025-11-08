@@ -174,19 +174,3 @@ python main.py
 - Si la web arranca pero ves mensajes de "Modo Demo" en la UI, puede ser que el predictor no esté inicializado correctamente (revisa la consola para errores al cargar el modelo).
 
 ---
-
-## ¿Qué hice por ti en este README2?
-
-- Explico cómo instalar dependencias y cómo activar un entorno virtual en Windows.
-- Indico cómo iniciar la web (`start_web.py` o `app.py`) y qué URLs abrir en el navegador.
-- Describo qué es `app.py` y cómo usar los endpoints (`/api/predict`, `/api/status`, `/camera`).
-- Doy ejemplos básicos de prueba con `curl` y `requests`.
-
----
-
-Si quieres, puedo también:
-
-- Añadir un ejemplo de imagen de prueba y un script pequeño `examples/test_predict.py` que envíe una imagen al endpoint.
-- Generar un `requirements.txt` consolidado o un `venv`/`.venv` recomendado.
-
-Dime si quieres que cree el ejemplo de script o haga alguna aclaración adicional.
