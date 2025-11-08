@@ -20,6 +20,108 @@ Este archivo explica cómo ejecutar la parte web y la parte de consola/tiempo re
 
 ---
 
+## Nota importante sobre el ZIP descargado y el entorno virtual
+
+Si descargaste el proyecto como un ZIP (por ejemplo desde GitHub), es normal que el archivo ZIP NO incluya el entorno virtual (`env` o `.venv`). Esto es intencional por varias razones:
+
+- Los entornos virtuales contienen archivos específicos del sistema y binarios que ocupan mucho espacio.
+- Los entornos virtuales creados en otra máquina no siempre funcionan correctamente en la tuya (diferencias de SO, rutas y versiones de Python).
+- Por buenas prácticas de desarrollo, los repositorios suelen ignorar (`.gitignore`) las carpetas de entornos virtuales.
+
+Por tanto, debes crear tu propio entorno virtual localmente. A continuación tienes pasos simples y claros (PowerShell y CMD) pensados para alguien con poca experiencia.
+
+---
+
+## Pasos fáciles y directos (PowerShell) — para usuarios con poca experiencia
+
+Abre PowerShell y navega a la carpeta del proyecto `SIGN-AI` (por ejemplo `cd C:\Users\z\Documents\SIGN-AI`). Luego copia y pega estos comandos uno por uno y pulsa Enter:
+
+```powershell
+# 1) Crear el entorno virtual
+python -m venv env
+
+# 2) Activar el entorno (PowerShell)
+.\env\Scripts\Activate.ps1
+
+# Si la activación falla por políticas de ejecución, puedes ejecutar este comando ANTES de activar
+# (permite ejecutar scripts solo para esta sesión):
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+
+# 3) Actualizar pip e instalar dependencias
+python -m pip install --upgrade pip
+pip install -r requirements_web.txt
+
+# 4) Ejecutar la aplicación web (recomendada):
+python start_web.py
+
+# Alternativa: ejecutar app.py directamente
+python app.py
+```
+
+Después de ejecutar `start_web.py` o `app.py` verás mensajes en consola y, si todo va bien, la URL sugerida: http://localhost:5000. Copia esa URL en tu navegador para ver la web.
+
+---
+
+## Si prefieres usar el Símbolo del sistema (CMD)
+
+Abre CMD (no PowerShell) y en la carpeta `SIGN-AI` ejecuta:
+
+```cmd
+python -m venv env
+env\Scripts\activate
+python -m pip install --upgrade pip
+pip install -r requirements_web.txt
+python start_web.py
+```
+
+Esto hace exactamente lo mismo que los pasos de PowerShell pero usando la activación de CMD.
+
+---
+
+## Ejecutar sin "activar" el entorno virtual (método alternativo, útil si no logras activar)
+
+Si no puedes activar el entorno por restricciones de PowerShell o por políticas, puedes llamar al intérprete Python directamente dentro del venv sin activarlo:
+
+```powershell
+# Desde PowerShell o CMD en la carpeta del proyecto:
+.\env\Scripts\python.exe -m pip install --upgrade pip
+.\env\Scripts\python.exe -m pip install -r requirements_web.txt
+.\env\Scripts\python.exe app.py
+# o para usar start_web.py
+.\env\Scripts\python.exe start_web.py
+```
+
+Este método evita la activación y ejecuta el Python del entorno directamente.
+
+---
+
+## Qué comandos usar si solo quieres "ver la web" rápidamente
+
+Resumen mínimo (PowerShell):
+
+```powershell
+python -m venv env
+.\env\Scripts\Activate.ps1    # o usar Set-ExecutionPolicy -Scope Process ... si es necesario
+pip install -r requirements_web.txt
+python start_web.py
+```
+
+O, sin activar (solo pegar y ejecutar):
+
+```powershell
+.\env\Scripts\python.exe -m pip install -r requirements_web.txt
+.\env\Scripts\python.exe start_web.py
+```
+
+Después de esto abre en tu navegador: http://localhost:5000
+
+---
+
+## Nota final y recomendaciones
+
+- Si ves errores relacionados con paquetes que no se instalan (por ejemplo, problemas al compilar dependencias nativas), prueba a instalar las dependencias una a una o revisa el mensaje de error para ver qué falta (herramientas como `build-tools` o `Microsoft Visual C++ Build Tools` pueden ser necesarias para Windows).
+- Si la web arranca pero el predictor muestra `missing_files` en `/api/status`, revisa que los archivos de `models/` y `data/processed/` existan con los nombres exactos.
+- Si quieres que cree un pequeño script `examples/test_predict.py` que envíe una imagen de prueba a `/api/predict`, dímelo y lo añado.
 ## Crear y activar un entorno virtual (PowerShell)
 
 En PowerShell (desde `c:\Users\z\Documents\SIGN-AI`):
@@ -173,4 +275,3 @@ python main.py
 - Problemas con la activación en PowerShell: usa CMD o Git Bash para activar el entorno virtual si no quieres cambiar políticas.
 - Si la web arranca pero ves mensajes de "Modo Demo" en la UI, puede ser que el predictor no esté inicializado correctamente (revisa la consola para errores al cargar el modelo).
 
----
