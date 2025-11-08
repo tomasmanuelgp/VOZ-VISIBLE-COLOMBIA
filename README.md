@@ -34,7 +34,7 @@ Por tanto, debes crear tu propio entorno virtual localmente. A continuación tie
 
 ## Pasos fáciles y directos (PowerShell) — para usuarios con poca experiencia
 
-Abre PowerShell y navega a la carpeta del proyecto `SIGN-AI` (por ejemplo `cd C:\Users\z\Documents\SIGN-AI`). Luego copia y pega estos comandos uno por uno y pulsa Enter:
+Abre PowerShell y navega a la carpeta del proyecto `SIGN-AI` (por ejemplo `cd C:\Users\<tu_usuario>\Documents\SIGN-AI`). Luego copia y pega estos comandos uno por uno y pulsa Enter:
 
 ```powershell
 # 1) Crear el entorno virtual
@@ -124,7 +124,7 @@ Después de esto abre en tu navegador: http://localhost:5000
 - Si quieres que cree un pequeño script `examples/test_predict.py` que envíe una imagen de prueba a `/api/predict`, dímelo y lo añado.
 ## Crear y activar un entorno virtual (PowerShell)
 
-En PowerShell (desde `c:\Users\z\Documents\SIGN-AI`):
+En PowerShell (desde `C:\Users\<tu_usuario>\Documents\SIGN-AI`):
 
 ```powershell
 python -m venv env
@@ -274,4 +274,3 @@ python main.py
 - Error al importar paquetes: vuelve a instalar con `pip install -r requirements_web.txt` en el entorno virtual.
 - Problemas con la activación en PowerShell: usa CMD o Git Bash para activar el entorno virtual si no quieres cambiar políticas.
 - Si la web arranca pero ves mensajes de "Modo Demo" en la UI, puede ser que el predictor no esté inicializado correctamente (revisa la consola para errores al cargar el modelo).
-
