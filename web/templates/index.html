@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOZ VISIBLE: Reconocimiento de Lenguaje de Señas Colombiano</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-hands"></i> VOZ VISIBLE</h1>
+            <p>Reconocimiento de Lenguaje de Señas Colombiano en Tiempo Real</p>
+            <div class="demo-badge">
+                <i class="fas fa-flask"></i> MODO DEMOSTRACIÓN
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="status-card">
+                <h2><i class="fas fa-info-circle"></i> Estado del Sistema</h2>
+                <div id="status" class="status-indicator">
+                    <i class="fas fa-spinner fa-spin"></i> Verificando...
+                </div>
+                <div class="demo-info">
+                    <p><i class="fas fa-info-circle"></i> <strong>Modo Demo:</strong> Las predicciones son simuladas para demostrar la interfaz</p>
+                </div>
+            </div>
+
+            <div class="action-cards">
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-video"></i>
+                    </div>
+                    <h3>Cámara en Tiempo Real</h3>
+                    <p>Reconocimiento continuo desde tu cámara web (simulado)</p>
+                    <a href="/camera" class="btn btn-primary">
+                        <i class="fas fa-play"></i> Iniciar Cámara
+                    </a>
+                </div>
+
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-upload"></i>
+                    </div>
+                    <h3>Subir Imagen</h3>
+                    <p>Analiza una imagen específica (simulado)</p>
+                    <button onclick="openImageUpload()" class="btn btn-secondary">
+                        <i class="fas fa-upload"></i> Subir Imagen
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-info"></i>
+                    </div>
+                    <h3>Información</h3>
+                    <p>Conoce más sobre el proyecto</p>
+                    <button onclick="showInfo()" class="btn btn-info">
+                        <i class="fas fa-info"></i> Ver Info
+                    </button>
+                </div>
+            </div>
+
+            <div class="prediction-area" id="predictionArea" style="display: none;">
+                <h2><i class="fas fa-brain"></i> Resultado de Predicción</h2>
+                <div class="prediction-result">
+                    <div class="predicted-word" id="predictedWord">-</div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="confidenceFill"></div>
+                    </div>
+                    <div class="confidence-text" id="confidenceText">0%</div>
+                    <div class="demo-notice">
+                        <i class="fas fa-flask"></i> Resultado simulado para demostración
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2024 VOZ VISIBLE - Reconocimiento de Lenguaje de Señas Colombiano</p>
+        </footer>
+    </div>
+
+    <!-- Modal para subir imagen -->
+    <div id="imageUploadModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeImageUpload()">&times;</span>
+            <h2><i class="fas fa-upload"></i> Subir Imagen</h2>
+            <input type="file" id="imageInput" accept="image/*" onchange="handleImageUpload()">
+            <div id="imagePreview" class="image-preview"></div>
+            <button id="analyzeBtn" onclick="analyzeImage()" class="btn btn-primary" disabled>
+                <i class="fas fa-search"></i> Analizar Imagen
+            </button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

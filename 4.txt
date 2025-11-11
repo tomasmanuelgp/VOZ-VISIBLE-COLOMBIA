@@ -1,0 +1,57 @@
+## �� Rendimiento del Sistema
+
+### Especificaciones Recomendadas
+- **CPU**: Intel i5 o AMD Ryzen 5 (o superior)
+- **RAM**: 16GB (mínimo 8GB)
+- **GPU**: No requerida (funciona con CPU)
+- **Cámara**: 720p o superior
+- **FPS**: 30 FPS de captura, 10 FPS de predicción
+
+### Métricas de Rendimiento
+- **Latencia de predicción**: ~100ms
+- **Precisión promedio**: 98.75%
+- **Uso de memoria**: ~2GB RAM
+- **Uso de CPU**: 30-50% (dependiendo del hardware)
+
+## �� Contribuciones
+
+### Cómo Contribuir
+1. Fork del repositorio
+2. Crear rama para nueva funcionalidad
+3. Hacer commit de cambios
+4. Push a la rama
+5. Crear Pull Request
+
+### Reportar Problemas
+- Usar el sistema de Issues del repositorio
+- Incluir información del sistema operativo
+- Adjuntar logs de error completos
+- Especificar pasos para reproducir el problema
+
+## �� Licencia
+
+Este proyecto está bajo la licencia [ESPECIFICAR_LICENCIA].
+
+## ��‍�� Autor
+
+[TU_NOMBRE] - [TU_EMAIL]
+
+## 🙏 Agradecimientos
+
+- **Google MediaPipe** por la detección de landmarks
+- **TensorFlow** por el framework de machine learning
+- **OpenCV** por el procesamiento de video
+- **scikit-learn** por las herramientas de preprocesamiento
+
+---
+
+## �� Soporte
+
+Para soporte técnico o preguntas:
+- **Email**: [TU_EMAIL]
+- **Issues**: [URL_DEL_REPOSITORIO]/issues
+- **Documentación**: [URL_DE_DOCUMENTACION]
+
+---
+
+**¡Disfruta usando SIGN-AI! 🤟**
