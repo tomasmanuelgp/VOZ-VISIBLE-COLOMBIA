@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOZ VISIBLE: Cámara en Tiempo Real</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-video"></i> Cámara en Tiempo Real</h1>
+            <p>Reconocimiento de lenguaje de señas colombiano desde tu cámara</p>
+            <div id="systemStatus" class="system-status">
+                <i class="fas fa-spinner fa-spin"></i> Verificando sistema...
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="camera-container">
+                <div class="video-container">
+                    <video id="cameraVideo" autoplay muted playsinline></video>
+                    <canvas id="captureCanvas" style="display: none;"></canvas>
+                    <div id="cameraPlaceholder" class="camera-placeholder">
+                        <i class="fas fa-video"></i>
+                        <h3>Cámara Web</h3>
+                        <p>Haz clic en "Iniciar Cámara" para comenzar</p>
+                    </div>
+                </div>
+                
+                <div class="prediction-display">
+                    <h3><i class="fas fa-brain"></i> Predicción en Tiempo Real</h3>
+                    <div class="predicted-word" id="cameraPredictedWord">-</div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="cameraConfidenceFill"></div>
+                    </div>
+                    <div class="confidence-text" id="cameraConfidenceText">0%</div>
+                    <div class="fps-counter">
+                        FPS: <span id="fpsCounter">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="startCameraBtn" onclick="startCamera()" class="btn btn-primary">
+                    <i class="fas fa-play"></i> Iniciar Cámara
+                </button>
+                <button id="stopCameraBtn" onclick="stopCamera()" class="btn btn-secondary" disabled>
+                    <i class="fas fa-stop"></i> Detener Cámara
+                </button>
+                <button onclick="togglePrediction()" class="btn btn-info">
+                    <i class="fas fa-brain"></i> Toggle Predicción
+                </button>
+                <button onclick="captureImage()" class="btn btn-success">
+                    <i class="fas fa-camera"></i> Capturar
+                </button>
+                <a href="/" class="btn btn-secondary">
+                    <i class="fas fa-home"></i> Volver al Inicio
+                </a>
+            </div>
+
+            <div class="stats-panel">
+                <div class="stat-item">
+                    <span class="stat-label">Estado:</span>
+                    <span id="connectionStatus" class="stat-value">Desconectado</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Predicciones:</span>
+                    <span id="predictionCount" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Última actualización:</span>
+                    <span id="lastUpdate" class="stat-value">-</span>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2024 VOZ VISIBLE - Reconocimiento de Lenguaje de Señas Colombiano</p>
+        </footer>
+    </div>
+
+    <script>
+        // Variables globales
+        let socket;
+        let cameraStream = null;
+        let isCapturing = false;
+        let isPredictionEnabled = true;
+        let predictionCount = 0;
+        let lastFrameTime = 0;
+        let fps = 0;
+
+        // Inicializar aplicación
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSocket();
+            checkSystemStatus();
+        });
+
+        // Inicializar Socket.IO
+        function initializeSocket() {
+            socket = io();
+            
+            socket.on('connect', function() {
+                console.log('Conectado al servidor');
+                updateConnectionStatus('Conectado', 'connected');
+            });
+            
+            socket.on('disconnect', function() {
+                console.log('Desconectado del servidor');
+                updateConnectionStatus('Desconectado', 'disconnected');
+            });
+            
+            socket.on('status', function(data) {
+                updateSystemStatus(data.status, data.message);
+            });
+            
+            socket.on('prediction', function(data) {
+                if (data.status === 'success') {
+                    updateCameraPrediction(data.word, data.confidence);
+                    predictionCount++;
+                    updateStats();
+                } else {
+                    console.error('Error en predicción:', data.message);
+                }
+            });
+            
+            socket.on('camera_status', function(data) {
+                console.log('Estado de cámara:', data.message);
+            });
+        }
+
+        // Verificar estado del sistema
+        async function checkSystemStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                updateSystemStatus(data.status, data.message);
+            } catch (error) {
+                updateSystemStatus('error', 'Error de conexión');
+            }
+        }
+
+        // Iniciar cámara
+        async function startCamera() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: 640, 
+                        height: 480,
+                        facingMode: 'user'
+                    } 
+                });
+                
+                const video = document.getElementById('cameraVideo');
+                const placeholder = document.getElementById('cameraPlaceholder');
+                
+                video.srcObject = cameraStream;
+                video.style.display = 'block';
+                placeholder.style.display = 'none';
+                
+                // Habilitar controles
+                document.getElementById('startCameraBtn').disabled = true;
+                document.getElementById('stopCameraBtn').disabled = false;
+                
+                // Iniciar captura de frames
+                isCapturing = true;
+                socket.emit('start_camera');
+                captureFrames();
+                
+                console.log('Cámara iniciada correctamente');
+                
+            } catch (error) {
+                console.error('Error accediendo a la cámara:', error);
+                alert('Error: No se pudo acceder a la cámara. Asegúrate de dar permisos.');
+            }
+        }
+
+        // Detener cámara
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            
+            const video = document.getElementById('cameraVideo');
+            const placeholder = document.getElementById('cameraPlaceholder');
+            
+            video.style.display = 'none';
+            placeholder.style.display = 'block';
+            
+            // Deshabilitar controles
+            document.getElementById('startCameraBtn').disabled = false;
+            document.getElementById('stopCameraBtn').disabled = true;
+            
+            isCapturing = false;
+            socket.emit('stop_camera');
+            
+            console.log('Cámara detenida');
+        }
+
+        // Capturar frames para predicción
+        function captureFrames() {
+            if (!isCapturing || !isPredictionEnabled) {
+                if (isCapturing) {
+                    requestAnimationFrame(captureFrames);
+                }
+                return;
+            }
+            
+            const video = document.getElementById('cameraVideo');
+            const canvas = document.getElementById('captureCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Configurar canvas
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            
+            // Dibujar frame actual
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convertir a base64
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Enviar frame al servidor (cada 200ms para no saturar)
+            const currentTime = Date.now();
+            if (currentTime - lastFrameTime > 200) {
+                socket.emit('process_frame', { frame: imageData });
+                lastFrameTime = currentTime;
+                
+                // Calcular FPS
+                fps = Math.round(1000 / (currentTime - lastFrameTime + 200));
+                document.getElementById('fpsCounter').textContent = fps;
+            }
+            
+            // Continuar capturando
+            requestAnimationFrame(captureFrames);
+        }
+
+        // Toggle predicción
+        function togglePrediction() {
+            isPredictionEnabled = !isPredictionEnabled;
+            const btn = event.target;
+            if (isPredictionEnabled) {
+                btn.innerHTML = '<i class="fas fa-brain"></i> Detener Predicción';
+                btn.className = 'btn btn-warning';
+            } else {
+                btn.innerHTML = '<i class="fas fa-brain"></i> Iniciar Predicción';
+                btn.className = 'btn btn-info';
+            }
+        }
+
+        // Capturar imagen
+        function captureImage() {
+            if (!cameraStream) return;
+            
+            const video = document.getElementById('cameraVideo');
+            const canvas = document.getElementById('captureCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Descargar imagen
+            const link = document.createElement('a');
+            link.download = `voz-visible-capture-${Date.now()}.jpg`;
+            link.href = canvas.toDataURL('image/jpeg', 0.9);
+            link.click();
+        }
+
+        // Actualizar predicción de cámara
+        function updateCameraPrediction(word, confidence) {
+            const predictedWord = document.getElementById('cameraPredictedWord');
+            const confidenceFill = document.getElementById('cameraConfidenceFill');
+            const confidenceText = document.getElementById('cameraConfidenceText');
+            
+            predictedWord.textContent = word;
+            
+            const confidencePercent = Math.round(confidence * 100);
+            confidenceFill.style.width = confidencePercent + '%';
+            confidenceText.textContent = confidencePercent + '%';
+            
+            // Color según confianza
+            if (confidence > 0.8) {
+                confidenceFill.className = 'confidence-fill high';
+            } else if (confidence > 0.5) {
+                confidenceFill.className = 'confidence-fill medium';
+            } else {
+                confidenceFill.className = 'confidence-fill low';
+            }
+        }
+
+        // Actualizar estado del sistema
+        function updateSystemStatus(status, message) {
+            const statusElement = document.getElementById('systemStatus');
+            
+            statusElement.innerHTML = `<i class="fas fa-${getStatusIcon(status)}"></i> ${message}`;
+            statusElement.className = `system-status ${status}`;
+        }
+
+        // Actualizar estado de conexión
+        function updateConnectionStatus(status, className) {
+            const connectionStatus = document.getElementById('connectionStatus');
+            connectionStatus.textContent = status;
+            connectionStatus.className = `stat-value ${className}`;
+        }
+
+        // Actualizar estadísticas
+        function updateStats() {
+            document.getElementById('predictionCount').textContent = predictionCount;
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        }
+
+        // Obtener icono según estado
+        function getStatusIcon(status) {
+            const icons = {
+                'ready': 'check-circle',
+                'error': 'exclamation-triangle',
+                'initializing': 'spinner fa-spin',
+                'missing_files': 'times-circle'
+            };
+            return icons[status] || 'question-circle';
+        }
+
+        // Limpiar recursos al cerrar
+        window.addEventListener('beforeunload', function() {
+            if (cameraStream) {
+                stopCamera();
+            }
+            if (socket) {
+                socket.disconnect();
+            }
+        });
+    </script>
+</body>
+</html>
