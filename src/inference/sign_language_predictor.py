@@ -118,21 +118,23 @@ class SignLanguagePredictor:
         
         return features, results
     
-    def predict_realtime(self, frame: np.ndarray) -> Tuple[str, float, bool]:
+    def predict_realtime(self, frame: np.ndarray, include_landmarks: bool = False) -> Tuple[str, float, bool, Optional[dict]]:
         """
         Predecir lenguaje de señas en tiempo real (con control de frecuencia)
         
         Args:
             frame: Frame de cámara (BGR)
+            include_landmarks: Si True, incluye landmarks en la respuesta
             
         Returns:
-            Tupla (clase_predicha, confianza, prediccion_realizada)
+            Tupla (clase_predicha, confianza, prediccion_realizada, landmarks_dict)
+            landmarks_dict será None si include_landmarks=False
         """
         current_time = time.time()
         
         # Controlar frecuencia de predicción para optimizar rendimiento
         if current_time - self.last_prediction_time < self.prediction_interval:
-            return "Esperando...", 0.0, False
+            return "Esperando...", 0.0, False, None
         
         try:
             # Extraer características del frame
@@ -151,14 +153,65 @@ class SignLanguagePredictor:
             # Decodificar índice a nombre de clase
             class_name = self.label_encoder.inverse_transform([class_idx])[0]
             
+            # Extraer landmarks si se solicita
+            landmarks_dict = None
+            if include_landmarks:
+                landmarks_dict = self._extract_landmarks_dict(results)
+            
             # Actualizar tiempo de última predicción
             self.last_prediction_time = current_time
             
-            return class_name, confidence, True
+            return class_name, confidence, True, landmarks_dict
             
         except Exception as e:
             print(f"❌ Error en predicción: {e}")
-            return "Error", 0.0, False
+            return "Error", 0.0, False, None
+    
+    def _extract_landmarks_dict(self, results) -> dict:
+        """
+        Extraer landmarks de MediaPipe a diccionario serializable
+        
+        Args:
+            results: Resultados de MediaPipe Holistic
+            
+        Returns:
+            Diccionario con landmarks normalizados (0-1)
+        """
+        landmarks_dict = {
+            "pose": [],
+            "right_hand": [],
+            "left_hand": []
+        }
+        
+        # Extraer landmarks de pose (33 puntos)
+        if results.pose_landmarks:
+            for landmark in results.pose_landmarks.landmark:
+                landmarks_dict["pose"].append({
+                    "x": landmark.x,
+                    "y": landmark.y,
+                    "z": landmark.z,
+                    "visibility": landmark.visibility
+                })
+        
+        # Extraer landmarks de mano derecha (21 puntos)
+        if results.right_hand_landmarks:
+            for landmark in results.right_hand_landmarks.landmark:
+                landmarks_dict["right_hand"].append({
+                    "x": landmark.x,
+                    "y": landmark.y,
+                    "z": landmark.z
+                })
+        
+        # Extraer landmarks de mano izquierda (21 puntos)
+        if results.left_hand_landmarks:
+            for landmark in results.left_hand_landmarks.landmark:
+                landmarks_dict["left_hand"].append({
+                    "x": landmark.x,
+                    "y": landmark.y,
+                    "z": landmark.z
+                })
+        
+        return landmarks_dict
     
     def draw_landmarks_realtime(self, frame: np.ndarray, results) -> np.ndarray:
         """

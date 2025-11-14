@@ -30,3 +30,9 @@ web/uploads/
 *.log
 .cache/
 .tmp/
+
+# ---- Logs de traducciones ----
+backend/logs/
+*.db
+translations.csv
+translations.db

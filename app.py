@@ -4,22 +4,20 @@ VOZ VISIBLE - Aplicación Web Flask
 Sistema de Reconocimiento de Lenguaje de Señas Colombiano en Tiempo Real
 """
 
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, jsonify, Response, current_app
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import os
 import sys
-import json
 import base64
 import cv2
 import numpy as np
 from PIL import Image
 import io
 import time
-import threading
-from pathlib import Path
+import logging
 
-# Configurar paths de manera robusta
+# Configurar paths de manera robusta ANTES de los imports
 def setup_import_paths():
     """
     Configurar paths para imports
@@ -35,8 +33,26 @@ def setup_import_paths():
     
     return src_path, current_dir
 
-# Configurar paths
+# Configurar paths PRIMERO
 src_path, project_root = setup_import_paths()
+
+# Ahora importar los módulos (después de configurar paths)
+from config.settings import AppSettings
+from repositories.sign_language_repository import SignLanguageRepository
+from services.prediction_service import PredictionService
+from services.tts_service import TTSService
+
+# Importar validadores
+try:
+    from utils.validators import (
+        validate_base64_image,
+        validate_text_for_tts,
+        validate_session_id
+    )
+    VALIDATORS_AVAILABLE = True
+except ImportError:
+    VALIDATORS_AVAILABLE = False
+    logging.warning("Validadores no disponibles")
 
 # Importar predictor con múltiples intentos
 SignLanguagePredictor = None
@@ -90,85 +106,40 @@ if SignLanguagePredictor is None:
     
     sys.exit(1)
 
+# Configuración de logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+)
+
 # Configuración de la aplicación
 app = Flask(__name__, template_folder='web/templates', static_folder='web/static')
-app.config['SECRET_KEY'] = 'voz-visible-secret-key-2024'
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Importar TTS
-try:
-    from tts.voice_synthesizer import VoiceSynthesizer
-    TTS_AVAILABLE = True
-    print("✅ VoiceSynthesizer disponible")
-except ImportError as e:
-    TTS_AVAILABLE = False
-    VoiceSynthesizer = None
-    print(f"⚠️ VoiceSynthesizer no disponible: {e}")
+# Inicializar servicios
+settings = AppSettings()
+app.config['SECRET_KEY'] = settings.secret_key
+settings.upload_folder.mkdir(parents=True, exist_ok=True)
+repository = SignLanguageRepository(settings)
+tts_service = TTSService(settings)
+prediction_service = PredictionService(settings, repository, tts_service)
+app.config['PREDICTION_SERVICE'] = prediction_service
+app.config['SETTINGS'] = settings
 
-# Variables globales
-predictor = None
-voice_synthesizer = None
-system_status = "initializing"
-current_prediction = {"word": "Iniciando...", "confidence": 0.0}
+def get_prediction_service() -> PredictionService:
+    return current_app.config['PREDICTION_SERVICE']
 
-# Configuración de rutas
-UPLOAD_FOLDER = 'web/uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def get_tts_service() -> TTSService:
+    return current_app.config['PREDICTION_SERVICE'].tts_service
+
 
 def initialize_predictor():
     """
     Inicializar el predictor de lenguaje de señas colombiano y TTS
     """
-    global predictor, voice_synthesizer, system_status
-    
-    try:
-        print("🤖 Inicializando sistema de predicción...")
-        
-        # Definir rutas de archivos
-        model_path = "models/Dense_Simple_patient.h5"
-        scaler_path = "data/processed/scaler_optimized.pkl"
-        label_encoder_path = "data/processed/label_encoder.pkl"
-        feature_info_path = "data/processed/feature_info.json"
-        
-        # Verificar archivos
-        required_files = [model_path, scaler_path, label_encoder_path, feature_info_path]
-        missing_files = [f for f in required_files if not os.path.exists(f)]
-        
-        if missing_files:
-            print(f"❌ Archivos faltantes: {missing_files}")
-            system_status = "missing_files"
-            return False
-        
-        # Inicializar predictor
-        predictor = SignLanguagePredictor(
-            model_path=model_path,
-            scaler_path=scaler_path,
-            label_encoder_path=label_encoder_path,
-            feature_info_path=feature_info_path
-        )
-        
-        # Inicializar TTS
-        if TTS_AVAILABLE and VoiceSynthesizer:
-            try:
-                voice_synthesizer = VoiceSynthesizer(
-                    cache_dir="data/cache/tts",
-                    language="es-co",  # Español colombiano
-                    slow=False
-                )
-                print("✅ Sistema de TTS inicializado correctamente")
-            except Exception as e:
-                print(f"⚠️ Error inicializando TTS: {e}")
-                voice_synthesizer = None
-        
-        system_status = "ready"
-        print("✅ Sistema de predicción inicializado correctamente")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error inicializando predictor: {str(e)}")
-        system_status = "error"
-        return False
+    return prediction_service.initialize()
 
 # Rutas principales
 @app.route('/')
@@ -187,190 +158,141 @@ def api_status():
     """
     Obtener estado del sistema
     """
-    model_info = {}
-    if predictor:
-        model_info = predictor.get_model_info()
-    
-    return jsonify({
-        'status': system_status,
-        'message': get_status_message(system_status),
-        'model_info': model_info,
-        'timestamp': time.time()
-    })
+    service = get_prediction_service()
+    return jsonify(service.get_status_payload())
 
 @app.route('/api/predict', methods=['POST'])
 def api_predict():
     """
     Realizar predicción de lenguaje de señas colombiano
-    """
-    global current_prediction
     
-    if system_status != "ready" or not predictor:
+    Body JSON:
+    {
+        "image": "data:image/jpeg;base64,...",
+        "include_landmarks": true/false (opcional, default: false)
+    }
+    """
+    service = get_prediction_service()
+    
+    if not service.is_ready():
         return jsonify({
             'status': 'error',
             'message': 'Sistema no disponible',
-            'error': get_status_message(system_status)
-        })
+            'error': 'Inicializa el predictor antes de realizar predicciones'
+        }), 503
     
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         
-        # Predicción desde imagen
-        if 'image' in data:
-            image_data = data['image']
-            
-            # Procesar imagen base64
-            if image_data.startswith('data:image'):
-                image_data = image_data.split(',')[1]
-            
-            # Decodificar imagen
-            image_bytes = base64.b64decode(image_data)
-            image = Image.open(io.BytesIO(image_bytes))
-            
-            # Convertir a formato OpenCV
-            cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-            
-            # Realizar predicción
-            prediction, confidence, success = predictor.predict_realtime(cv_image)
-            
-            if success:
-                current_prediction = {"word": prediction, "confidence": confidence}
-                
-                # Generar audio TTS si está disponible
-                audio_data = None
-                if voice_synthesizer:
-                    try:
-                        audio_bytes, tts_error = voice_synthesizer.text_to_speech(prediction)
-                        if not tts_error and audio_bytes:
-                            audio_data = base64.b64encode(audio_bytes).decode('utf-8')
-                    except Exception as e:
-                        print(f"⚠️ Error generando TTS: {e}")
-                
-                response_data = {
-                    'status': 'success',
-                    'word': prediction,
-                    'confidence': float(confidence),
-                    'timestamp': time.time()
-                }
-                
-                if audio_data:
-                    response_data['audio'] = f'data:audio/mpeg;base64,{audio_data}'
-                
-                return jsonify(response_data)
-            else:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Error en la predicción',
-                    'error': 'No se pudieron extraer características'
-                })
-        
-        else:
+        if 'image' not in data:
             return jsonify({
                 'status': 'error',
                 'message': 'Datos inválidos',
                 'error': 'Se requiere imagen'
-            })
+            }), 400
+        
+        # Validar imagen
+        if VALIDATORS_AVAILABLE:
+            is_valid, error_msg = validate_base64_image(data['image'])
+            if not is_valid:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Imagen inválida',
+                    'error': error_msg
+                }), 400
+        
+        include_landmarks = data.get('include_landmarks', False)
+        session_id = data.get('session_id') or request.remote_addr
+        
+        # Validar session_id
+        if VALIDATORS_AVAILABLE and session_id:
+            is_valid, error_msg = validate_session_id(session_id)
+            if not is_valid:
+                session_id = request.remote_addr  # Usar IP como fallback
+        
+        response_data = service.predict_from_base64(data['image'], include_landmarks=include_landmarks, session_id=session_id)
+        if response_data:
+            return jsonify(response_data)
+        return jsonify({
+            'status': 'error',
+            'message': 'No se pudieron extraer características'
+        }), 422
             
     except Exception as e:
-        print(f"❌ Error en predicción: {str(e)}")
+        logging.exception("❌ Error en predicción")
         return jsonify({
             'status': 'error',
             'message': 'Error interno del servidor',
             'error': str(e)
-        })
+        }), 500
 
 @app.route('/api/upload', methods=['POST'])
 def api_upload():
     """
     Subir y analizar imagen
     """
-    if system_status != "ready" or not predictor:
+    service = get_prediction_service()
+    if not service.is_ready():
         return jsonify({
             'status': 'error',
             'message': 'Sistema no disponible'
-        })
+        }), 503
     
     try:
         if 'file' not in request.files:
             return jsonify({
                 'status': 'error',
                 'message': 'No se envió archivo'
-            })
+            }), 400
         
         file = request.files['file']
         if file.filename == '':
             return jsonify({
                 'status': 'error',
                 'message': 'No se seleccionó archivo'
-            })
+            }), 400
         
-        # Guardar archivo temporalmente
         filename = f"temp_{int(time.time())}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        upload_folder = current_app.config['SETTINGS'].upload_folder
+        filepath = upload_folder / filename
         file.save(filepath)
         
-        # Cargar y procesar imagen
-        image = cv2.imread(filepath)
+        image = cv2.imread(str(filepath))
+        filepath.unlink(missing_ok=True)
         if image is None:
             return jsonify({
                 'status': 'error',
                 'message': 'Imagen inválida'
-            })
+            }), 400
         
-        # Realizar predicción
-        prediction, confidence, success = predictor.predict_realtime(image)
-        
-        # Limpiar archivo temporal
-        os.remove(filepath)
-        
-        if success:
-            # Generar audio TTS si está disponible
-            audio_data = None
-            if voice_synthesizer:
-                try:
-                    audio_bytes, tts_error = voice_synthesizer.text_to_speech(prediction)
-                    if not tts_error and audio_bytes:
-                        audio_data = base64.b64encode(audio_bytes).decode('utf-8')
-                except Exception as e:
-                    print(f"⚠️ Error generando TTS: {e}")
-            
-            response_data = {
-                'status': 'success',
-                'word': prediction,
-                'confidence': float(confidence),
-                'timestamp': time.time()
-            }
-            
-            if audio_data:
-                response_data['audio'] = f'data:audio/mpeg;base64,{audio_data}'
-            
+        response_data = service.predict_from_frame(image)
+        if response_data:
             return jsonify(response_data)
-        else:
-            return jsonify({
-                'status': 'error',
-                'message': 'No se pudieron extraer características de la imagen'
-            })
+        return jsonify({
+            'status': 'error',
+            'message': 'No se pudieron extraer características de la imagen'
+        }), 422
             
     except Exception as e:
-        print(f"❌ Error en upload: {str(e)}")
+        logging.exception("❌ Error en upload")
         return jsonify({
             'status': 'error',
             'message': 'Error procesando imagen',
             'error': str(e)
-        })
+        }), 500
 
 @app.route('/api/model-info')
 def api_model_info():
     """
     Obtener información del modelo
     """
-    if predictor:
-        return jsonify(predictor.get_model_info())
-    else:
-        return jsonify({
-            'status': 'error',
-            'message': 'Predictor no inicializado'
-        })
+    service = get_prediction_service()
+    if service.predictor:
+        return jsonify(service.predictor.get_model_info())
+    return jsonify({
+        'status': 'error',
+        'message': 'Predictor no inicializado'
+    }), 503
 
 @app.route('/api/tts', methods=['POST'])
 def api_tts():
@@ -383,68 +305,70 @@ def api_tts():
         "format": "base64" | "url" (opcional, default: "base64")
     }
     """
-    if not voice_synthesizer:
+    tts_service = get_tts_service()
+    if not tts_service.is_available():
         return jsonify({
             'status': 'error',
             'message': 'Sistema TTS no disponible'
         }), 503
     
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         
-        if not data or 'text' not in data:
+        if 'text' not in data:
             return jsonify({
                 'status': 'error',
                 'message': 'Se requiere el campo "text"'
             }), 400
         
         text = data['text'].strip()
-        if not text:
+        
+        # Validar texto
+        if VALIDATORS_AVAILABLE:
+            is_valid, error_msg = validate_text_for_tts(text)
+            if not is_valid:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Texto inválido',
+                    'error': error_msg
+                }), 400
+        elif not text:
             return jsonify({
                 'status': 'error',
                 'message': 'El texto no puede estar vacío'
             }), 400
         
         format_type = data.get('format', 'base64')
-        
-        # Generar audio
-        audio_bytes, error = voice_synthesizer.text_to_speech(text)
-        
-        if error:
-            return jsonify({
-                'status': 'error',
-                'message': error
-            }), 500
-        
         if format_type == 'base64':
-            # Devolver como base64
-            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
-            return jsonify({
-                'status': 'success',
-                'audio': f'data:audio/mpeg;base64,{audio_base64}',
-                'text': text,
-                'timestamp': time.time()
-            })
-        else:
-            # Devolver URL del archivo (guardado en cache)
-            file_path, error = voice_synthesizer.text_to_speech_file(text)
-            if error:
+            audio_data = tts_service.generate_audio_base64(text)
+            if not audio_data:
                 return jsonify({
                     'status': 'error',
-                    'message': error
+                    'message': 'No se pudo generar audio'
                 }), 500
-            
-            # Crear URL relativa
-            audio_url = f'/api/tts/file/{os.path.basename(file_path)}'
             return jsonify({
                 'status': 'success',
-                'audio_url': audio_url,
+                'audio': audio_data,
                 'text': text,
                 'timestamp': time.time()
             })
+        
+        file_path = tts_service.save_audio_file(text)
+        if not file_path:
+            return jsonify({
+                'status': 'error',
+                'message': 'No se pudo generar archivo de audio'
+            }), 500
+        audio_url = f'/api/tts/file/{os.path.basename(file_path)}'
+        return jsonify({
+            'status': 'success',
+            'audio_url': audio_url,
+            'text': text,
+            'timestamp': time.time()
+        })
             
     except Exception as e:
-        print(f"❌ Error en TTS: {str(e)}")
+        logging.exception("❌ Error en TTS")
         return jsonify({
             'status': 'error',
             'message': 'Error generando audio',
@@ -456,14 +380,15 @@ def api_tts_file(filename):
     """
     Servir archivo de audio desde cache
     """
-    if not voice_synthesizer:
+    tts_service = get_tts_service()
+    if not tts_service.is_available():
         return jsonify({
             'status': 'error',
             'message': 'Sistema TTS no disponible'
         }), 503
     
     try:
-        cache_path = voice_synthesizer.cache_dir / filename
+        cache_path = current_app.config['SETTINGS'].tts.cache_dir / filename
         if not cache_path.exists():
             return jsonify({
                 'status': 'error',
@@ -483,7 +408,7 @@ def api_tts_file(filename):
         )
         
     except Exception as e:
-        print(f"❌ Error sirviendo archivo TTS: {str(e)}")
+        logging.exception("❌ Error sirviendo archivo TTS")
         return jsonify({
             'status': 'error',
             'message': 'Error sirviendo archivo',
@@ -495,11 +420,10 @@ def api_tts_file(filename):
 def handle_connect():
     """Cliente conectado"""
     print(f"🔌 Cliente conectado: {request.sid}")
-    emit('status', {
-        'status': system_status,
-        'message': get_status_message(system_status),
-        'current_prediction': current_prediction
-    })
+    service = get_prediction_service()
+    payload = service.get_status_payload()
+    payload['current_prediction'] = service.current_prediction
+    emit('status', payload)
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -509,7 +433,8 @@ def handle_disconnect():
 @socketio.on('start_camera')
 def handle_start_camera():
     """Iniciar cámara en tiempo real"""
-    if system_status == "ready" and predictor:
+    service = get_prediction_service()
+    if service.is_ready():
         emit('camera_status', {'status': 'started', 'message': 'Cámara iniciada'})
     else:
         emit('camera_status', {'status': 'error', 'message': 'Sistema no disponible'})
@@ -521,8 +446,15 @@ def handle_stop_camera():
 
 @socketio.on('process_frame')
 def handle_process_frame(data):
-    """Procesar frame de cámara"""
-    if system_status != "ready" or not predictor:
+    """
+    Procesar frame de cámara
+    
+    data puede contener:
+    - 'frame': imagen en base64
+    - 'include_landmarks': boolean (opcional, default: false)
+    """
+    service = get_prediction_service()
+    if not service.is_ready():
         emit('prediction', {
             'status': 'error',
             'message': 'Sistema no disponible'
@@ -531,7 +463,14 @@ def handle_process_frame(data):
     
     try:
         # Procesar frame (data contiene imagen en base64)
-        image_data = data['frame']
+        image_data = data.get('frame', '')
+        if not image_data:
+            emit('prediction', {
+                'status': 'error',
+                'message': 'No se proporcionó frame'
+            })
+            return
+            
         if image_data.startswith('data:image'):
             image_data = image_data.split(',')[1]
         
@@ -540,30 +479,12 @@ def handle_process_frame(data):
         image = Image.open(io.BytesIO(image_bytes))
         cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         
-        # Realizar predicción
-        prediction, confidence, success = predictor.predict_realtime(cv_image)
+        # Verificar si se solicitan landmarks
+        include_landmarks = data.get('include_landmarks', False)
+        session_id = data.get('session_id') or request.remote_addr
         
-        if success:
-            # Generar audio TTS si está disponible
-            audio_data = None
-            if voice_synthesizer:
-                try:
-                    audio_bytes, tts_error = voice_synthesizer.text_to_speech(prediction)
-                    if not tts_error and audio_bytes:
-                        audio_data = base64.b64encode(audio_bytes).decode('utf-8')
-                except Exception as e:
-                    print(f"⚠️ Error generando TTS: {e}")
-            
-            prediction_data = {
-                'status': 'success',
-                'word': prediction,
-                'confidence': float(confidence),
-                'timestamp': time.time()
-            }
-            
-            if audio_data:
-                prediction_data['audio'] = f'data:audio/mpeg;base64,{audio_data}'
-            
+        prediction_data = service.predict_from_frame(cv_image, include_landmarks=include_landmarks, session_id=session_id)
+        if prediction_data:
             emit('prediction', prediction_data)
         else:
             emit('prediction', {
@@ -572,23 +493,98 @@ def handle_process_frame(data):
             })
             
     except Exception as e:
-        print(f"❌ Error procesando frame: {str(e)}")
+        logging.exception("❌ Error procesando frame")
         emit('prediction', {
             'status': 'error',
             'message': 'Error procesando frame',
             'error': str(e)
         })
 
-# Funciones auxiliares
-def get_status_message(status):
-    """Obtener mensaje de estado"""
-    messages = {
-        'initializing': 'Inicializando sistema...',
-        'ready': 'Sistema listo',
-        'error': 'Error en el sistema',
-        'missing_files': 'Archivos del modelo no encontrados'
-    }
-    return messages.get(status, 'Estado desconocido')
+@app.route('/api/logs', methods=['GET'])
+def api_get_logs():
+    """
+    Obtener logs de traducciones (solo para admin)
+    
+    Query parameters:
+    - limit: Número máximo de registros (default: 100)
+    - session_id: Filtrar por sesión (opcional)
+    - start_date: Fecha de inicio ISO (opcional)
+    - end_date: Fecha de fin ISO (opcional)
+    """
+    service = get_prediction_service()
+    
+    if not hasattr(service, 'logger_service') or not service.logger_service:
+        return jsonify({
+            'status': 'error',
+            'message': 'Servicio de logging no disponible'
+        }), 503
+    
+    try:
+        limit = int(request.args.get('limit', 100))
+        session_id = request.args.get('session_id')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        logs = service.logger_service.get_logs(
+            limit=limit,
+            session_id=session_id,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return jsonify({
+            'status': 'success',
+            'logs': logs,
+            'count': len(logs)
+        })
+    except Exception as e:
+        logging.exception("Error obteniendo logs")
+        return jsonify({
+            'status': 'error',
+            'message': 'Error obteniendo logs',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/logs/stats', methods=['GET'])
+def api_get_logs_stats():
+    """
+    Obtener estadísticas de traducciones
+    """
+    service = get_prediction_service()
+    
+    if not hasattr(service, 'logger_service') or not service.logger_service:
+        return jsonify({
+            'status': 'error',
+            'message': 'Servicio de logging no disponible'
+        }), 503
+    
+    try:
+        stats = service.logger_service.get_stats()
+        return jsonify({
+            'status': 'success',
+            'stats': stats
+        })
+    except Exception as e:
+        logging.exception("Error obteniendo estadísticas")
+        return jsonify({
+            'status': 'error',
+            'message': 'Error obteniendo estadísticas',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/healthcheck', methods=['GET'])
+def api_healthcheck():
+    """
+    Healthcheck endpoint para verificar estado del sistema
+    """
+    service = get_prediction_service()
+    status_payload = service.get_status_payload()
+    
+    return jsonify({
+        'status': 'ok' if service.is_ready() else 'degraded',
+        'system': status_payload,
+        'timestamp': time.time()
+    })
 
 if __name__ == '__main__':
     print(" VOZ VISIBLE - Aplicación Web")

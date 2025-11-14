@@ -1,11 +1,30 @@
 // VOZ VISIBLE: JavaScript para interfaz web funcional
 
 let socket;
+let lastAudioData = null;
+let currentAudio = null;
+const MAX_HISTORY_ITEMS = 12;
+const predictionHistory = [];
 
 // Verificar estado del sistema al cargar
 document.addEventListener('DOMContentLoaded', function() {
     initializeSocket();
     checkSystemStatus();
+    initializeTheme();
+    
+    // Smooth scroll para links de navegación
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
 });
 
 // Inicializar Socket.IO
@@ -120,54 +139,131 @@ async function analyzeImage() {
     }
 }
 
-// Reproducir audio TTS
+// Reproducir audio TTS con feedback visual
 function playTTSAudio(audioData) {
     if (!audioData) return;
     
+    // Guardar último audio para repetir
+    lastAudioData = audioData;
+    
+    // Mostrar indicador de TTS
+    const ttsIndicator = document.getElementById('homeTTSIndicator');
+    const repeatBtn = document.getElementById('homeRepeatAudioBtn');
+    
+    if (ttsIndicator) {
+        ttsIndicator.style.display = 'flex';
+    }
+    if (repeatBtn) {
+        repeatBtn.style.display = 'inline-block';
+    }
+    
     try {
-        const audio = new Audio(audioData);
-        audio.play().catch(error => {
+        // Detener audio anterior si está reproduciéndose
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+        }
+        
+        currentAudio = new Audio(audioData);
+        
+        // Ocultar indicador cuando termine
+        currentAudio.addEventListener('ended', function() {
+            if (ttsIndicator) {
+                ttsIndicator.style.display = 'none';
+            }
+        });
+        
+        // Manejar errores
+        currentAudio.addEventListener('error', function(e) {
+            console.warn('Error reproduciendo audio:', e);
+            if (ttsIndicator) {
+                ttsIndicator.style.display = 'none';
+            }
+        });
+        
+        currentAudio.play().catch(error => {
             console.warn('Error reproduciendo audio:', error);
+            if (ttsIndicator) {
+                ttsIndicator.style.display = 'none';
+            }
         });
     } catch (error) {
         console.warn('Error creando audio:', error);
+        if (ttsIndicator) {
+            ttsIndicator.style.display = 'none';
+        }
+    }
+}
+
+// Repetir último audio reproducido
+function repeatLastAudio() {
+    if (lastAudioData) {
+        playTTSAudio(lastAudioData);
     }
 }
 
 // Mostrar resultado de predicción
 function showPrediction(word, confidence, audioData = null) {
-    const predictionArea = document.getElementById('predictionArea');
+    // Actualizar texto traducido (nuevo diseño)
+    const translatedText = document.getElementById('translatedText');
+    if (translatedText) {
+        translatedText.textContent = word;
+        // Efecto de máquina de escribir
+        translatedText.style.animation = 'none';
+        setTimeout(() => {
+            translatedText.style.animation = 'typewriter 0.5s ease';
+        }, 10);
+    }
+    
+    // También mantener compatibilidad con elementos antiguos
     const predictedWord = document.getElementById('predictedWord');
+    if (predictedWord) {
+        predictedWord.textContent = word;
+    }
+    
     const confidenceFill = document.getElementById('confidenceFill');
     const confidenceText = document.getElementById('confidenceText');
     
-    // Mostrar área de predicción
-    predictionArea.style.display = 'block';
-    
-    // Actualizar palabra predicha
-    predictedWord.textContent = word;
-    
-    // Actualizar barra de confianza
-    const confidencePercent = Math.round(confidence * 100);
-    confidenceFill.style.width = confidencePercent + '%';
-    confidenceText.textContent = confidencePercent + '%';
-    
-    // Color según confianza
-    if (confidence > 0.8) {
-        confidenceFill.className = 'confidence-fill high';
-    } else if (confidence > 0.5) {
-        confidenceFill.className = 'confidence-fill medium';
-    } else {
-        confidenceFill.className = 'confidence-fill low';
+    if (confidenceFill && confidenceText) {
+        // Actualizar barra de confianza
+        const confidencePercent = Math.round(confidence * 100);
+        confidenceFill.style.width = confidencePercent + '%';
+        
+        // Actualizar texto de confianza (puede tener formato diferente)
+        if (confidenceText.textContent.includes('Confianza:')) {
+            confidenceText.textContent = `Confianza: ${confidencePercent}%`;
+        } else {
+            confidenceText.textContent = confidencePercent + '%';
+        }
+        
+        // Color según confianza
+        confidenceFill.className = 'confidence-fill';
+        if (confidence > 0.8) {
+            confidenceFill.classList.add('high');
+        } else if (confidence > 0.5) {
+            confidenceFill.classList.add('medium');
+        } else {
+            confidenceFill.classList.add('low');
+        }
     }
     
-    // Reproducir audio TTS si está disponible
+    // Guardar audio para repetir
     if (audioData) {
+        lastAudioData = audioData;
         playTTSAudio(audioData);
     }
     
-    // Scroll a la predicción
-    predictionArea.scrollIntoView({ behavior: 'smooth' });
+    addPredictionToHistory({
+        word,
+        confidence,
+        timestamp: Date.now()
+    });
+    
+    // Scroll suave a la sección de demo si existe
+    const demoSection = document.getElementById('demo');
+    if (demoSection) {
+        demoSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 // Mostrar información del modelo
@@ -244,4 +340,91 @@ window.onclick = function(event) {
     if (event.target === modal) {
         closeImageUpload();
     }
+}
+
+// Gestión de tema (modo claro/oscuro)
+function initializeTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    applyTheme(savedTheme);
+}
+
+function toggleTheme() {
+    const currentTheme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    applyTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+}
+
+function applyTheme(theme) {
+    const body = document.body;
+    const themeIcon = document.getElementById('themeIcon');
+    
+    if (theme === 'dark') {
+        body.classList.add('dark-theme');
+        if (themeIcon) {
+            themeIcon.className = 'fas fa-sun';
+        }
+    } else {
+        body.classList.remove('dark-theme');
+        if (themeIcon) {
+            themeIcon.className = 'fas fa-moon';
+        }
+    }
+}
+
+// Historial de predicciones (Home)
+function addPredictionToHistory(entry) {
+    const newEntry = {
+        word: entry.word || '-',
+        confidence: typeof entry.confidence === 'number' ? entry.confidence : 0,
+        timestamp: entry.timestamp || Date.now()
+    };
+    predictionHistory.unshift(newEntry);
+    if (predictionHistory.length > MAX_HISTORY_ITEMS) {
+        predictionHistory.pop();
+    }
+    renderPredictionHistory();
+}
+
+function renderPredictionHistory() {
+    const historyPanel = document.getElementById('historyPanel');
+    const list = document.getElementById('homePredictionHistoryList');
+    if (!historyPanel || !list) return;
+
+    if (!predictionHistory.length) {
+        historyPanel.style.display = 'none';
+        list.innerHTML = '<li class="history-empty">Aún no hay predicciones</li>';
+        return;
+    }
+
+    historyPanel.style.display = 'block';
+    list.innerHTML = '';
+
+    predictionHistory.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'history-item';
+        li.innerHTML = `
+            <div class="history-word">${item.word}</div>
+            <div class="history-meta">
+                <div>${formatConfidence(item.confidence)}</div>
+                <small>${formatTimestamp(item.timestamp)}</small>
+            </div>
+        `;
+        list.appendChild(li);
+    });
+}
+
+function clearPredictionHistory() {
+    predictionHistory.length = 0;
+    renderPredictionHistory();
+}
+
+function formatConfidence(confidence) {
+    const percent = Math.round(confidence * 100);
+    return `${percent}% confianza`;
+}
+
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString();
 }

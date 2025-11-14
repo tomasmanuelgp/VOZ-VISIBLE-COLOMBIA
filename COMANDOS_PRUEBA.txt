@@ -1,0 +1,101 @@
+═══════════════════════════════════════════════════════════════
+  COMANDOS PARA PROBAR VOZ VISIBLE
+  (Copia y pega estos comandos en tu terminal)
+═══════════════════════════════════════════════════════════════
+
+📋 PASO 1: Verificar que el entorno virtual esté activo
+─────────────────────────────────────────────────────────────
+# Deberías ver (env) al inicio de tu prompt
+# Si no lo ves, activa con:
+.\env\Scripts\Activate.ps1
+
+
+📋 PASO 2: Verificar dependencias instaladas (opcional)
+─────────────────────────────────────────────────────────────
+pip list | Select-String "flask|tensorflow|mediapipe|opencv"
+
+
+📋 PASO 3: Verificar archivos necesarios del modelo
+─────────────────────────────────────────────────────────────
+if (Test-Path models\Dense_Simple_patient.h5) { Write-Host "✓ Modelo principal OK" -ForegroundColor Green } else { Write-Host "✗ Falta modelo principal" -ForegroundColor Red }
+if (Test-Path data\processed\scaler_optimized.pkl) { Write-Host "✓ Scaler OK" -ForegroundColor Green } else { Write-Host "✗ Falta scaler" -ForegroundColor Red }
+if (Test-Path data\processed\label_encoder.pkl) { Write-Host "✓ Label encoder OK" -ForegroundColor Green } else { Write-Host "✗ Falta label encoder" -ForegroundColor Red }
+if (Test-Path data\processed\feature_info.json) { Write-Host "✓ Feature info OK" -ForegroundColor Green } else { Write-Host "✗ Falta feature info" -ForegroundColor Red }
+
+
+📋 PASO 4: Ejecutar la aplicación
+─────────────────────────────────────────────────────────────
+python app.py
+
+# O si prefieres usar start_web.py (hace verificaciones automáticas):
+python start_web.py
+
+
+═══════════════════════════════════════════════════════════════
+  DESPUÉS DE EJECUTAR, VERÁS:
+═══════════════════════════════════════════════════════════════
+
+ VOZ VISIBLE - Aplicación Web
+==================================================
+🌐 Iniciando servidor web...
+📡 URL: http://localhost:5000
+==================================================
+
+
+═══════════════════════════════════════════════════════════════
+  ABRE EN TU NAVEGADOR:
+═══════════════════════════════════════════════════════════════
+
+🌐 Página Principal:
+   http://localhost:5000
+
+📹 Cámara en Tiempo Real:
+   http://localhost:5000/camera
+
+🔍 API Status (JSON):
+   http://localhost:5000/api/status
+
+❤️ Healthcheck:
+   http://localhost:5000/api/healthcheck
+
+📊 Model Info:
+   http://localhost:5000/api/model-info
+
+
+═══════════════════════════════════════════════════════════════
+  COMANDOS PARA PROBAR ENDPOINTS (en otra terminal)
+═══════════════════════════════════════════════════════════════
+
+# Probar Status
+curl http://localhost:5000/api/status
+
+# Probar Healthcheck
+curl http://localhost:5000/api/healthcheck
+
+# Probar Model Info
+curl http://localhost:5000/api/model-info
+
+# Probar Logs (si hay traducciones)
+curl http://localhost:5000/api/logs?limit=10
+
+# Probar Estadísticas
+curl http://localhost:5000/api/logs/stats
+
+
+═══════════════════════════════════════════════════════════════
+  PARA DETENER EL SERVIDOR:
+═══════════════════════════════════════════════════════════════
+
+Presiona: Ctrl + C
+
+
+═══════════════════════════════════════════════════════════════
+  SI HAY ERRORES:
+═══════════════════════════════════════════════════════════════
+
+1. Verifica que todos los archivos del modelo existan
+2. Revisa los mensajes de error en la consola
+3. Asegúrate de tener Python 3.10 o 3.11
+4. Si falta alguna dependencia:
+   pip install -r requirements_web.txt
+

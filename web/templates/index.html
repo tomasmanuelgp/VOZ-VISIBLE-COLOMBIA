@@ -3,85 +3,472 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VOZ VISIBLE: Reconocimiento de Lenguaje de Señas Colombiano</title>
+    <title>VOZ VISIBLE: Traducción de Lengua de Señas Colombiana en Tiempo Real</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1><i class="fas fa-hands"></i> VOZ VISIBLE</h1>
-            <p>Reconocimiento de Lenguaje de Señas Colombiano en Tiempo Real</p>
-            <div class="demo-badge">
-                <i class="fas fa-flask"></i> MODO DEMOSTRACIÓN
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-hands"></i> VOZ VISIBLE
             </div>
-        </header>
+            <div class="nav-links">
+                <a href="#hero" class="nav-link">Inicio</a>
+                <a href="#about" class="nav-link">Sobre Nosotros</a>
+                <a href="#learn" class="nav-link">Aprende Más</a>
+                <a href="#demo" class="nav-link">Probar Demo</a>
+                <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
 
-        <main class="main-content">
+    <!-- Hero Section -->
+    <section id="hero" class="hero-section">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1 class="hero-title">
+                    Traducción de Lengua de Señas<br>
+                    <span class="hero-title-accent">Colombiana</span> en tiempo real
+                </h1>
+                <p class="hero-subtitle">
+                    Tecnología creada por estudiantes para la comunidad sorda<br>
+                    de la jornada sabatina del Colegio José Elías Puyana.
+                </p>
+                <div class="hero-buttons">
+                    <a href="#demo" class="btn btn-hero-primary">
+                        <i class="fas fa-play-circle"></i> Probar Demo
+                    </a>
+                    <a href="#about" class="btn btn-hero-secondary">
+                        <i class="fas fa-info-circle"></i> Conocer Más
+                    </a>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="hero-icon-container">
+                    <i class="fas fa-hands hero-icon"></i>
+                </div>
+            </div>
+        </div>
+        <div class="hero-wave">
+            <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
+                <path d="M0,60 C300,100 600,20 900,60 C1050,80 1150,40 1200,60 L1200,120 L0,120 Z" fill="currentColor"></path>
+            </svg>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="about-section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Sobre Voz Visible</h2>
+                <p class="section-subtitle">Conoce nuestra misión, visión y propósito social</p>
+            </div>
+
+            <div class="about-grid">
+                <div class="about-card">
+                    <div class="about-icon">
+                        <i class="fas fa-bullseye"></i>
+                    </div>
+                    <h3>Misión</h3>
+                    <p>
+                        Voz Visible busca facilitar la comunicación entre personas sordas y oyentes, 
+                        utilizando inteligencia artificial accesible y de código abierto, enfocada 
+                        especialmente en la comunidad de la Jornada Sabatina del Colegio José Elías Puyana.
+                    </p>
+                </div>
+
+                <div class="about-card">
+                    <div class="about-icon">
+                        <i class="fas fa-eye"></i>
+                    </div>
+                    <h3>Visión</h3>
+                    <p>
+                        Convertirse en una herramienta reconocida en Colombia para apoyar procesos 
+                        educativos, comunicativos y sociales en comunidades sordas, promoviendo la 
+                        inclusión y el acceso a la tecnología.
+                    </p>
+                </div>
+
+                <div class="about-card">
+                    <div class="about-icon">
+                        <i class="fas fa-heart"></i>
+                    </div>
+                    <h3>Propósito Social</h3>
+                    <p>
+                        Este proyecto nace del compromiso de apoyar directamente a estudiantes sordos 
+                        del colegio, creando una solución tecnológica que rompe barreras comunicativas 
+                        y promueve la inclusión en entornos educativos.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Team Section -->
+            <div class="team-section">
+                <h2 class="section-title">Equipo de Desarrollo</h2>
+                <div class="team-grid">
+                    <div class="team-card">
+                        <div class="team-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <h3>Tomás González</h3>
+                        <p class="team-role">Programador Backend</p>
+                        <p class="team-description">
+                            Encargado del diseño de modelos IA, entrenamiento CNN/RNN, manejo y limpieza 
+                            de datos, y arquitectura del proyecto.
+                        </p>
+                        <div class="team-contact">
+                            <a href="mailto:tomasgonzalez0411@gmail.com" class="team-link">
+                                <i class="fas fa-envelope"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="team-card">
+                        <div class="team-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <h3>Samuel Cardona</h3>
+                        <p class="team-role">Programador Backend</p>
+                        <p class="team-description">
+                            Especializado en integraciones, unión de modelos al sistema, APIs, endpoints 
+                            y conexión del backend con el frontend.
+                        </p>
+                    </div>
+
+                    <div class="team-card">
+                        <div class="team-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <h3>Andrés Ferreira</h3>
+                        <p class="team-role">Programador Frontend</p>
+                        <p class="team-description">
+                            Responsable de UI/UX, diseño visual, layout del sitio y experiencia del usuario.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Learn Section -->
+    <section id="learn" class="learn-section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Aprende Más</h2>
+                <p class="section-subtitle">Descubre la tecnología y la comunidad sorda en Colombia</p>
+            </div>
+
+            <!-- Technology Subsection -->
+            <div class="learn-subsection">
+                <h3 class="subsection-title">
+                    <i class="fas fa-microchip"></i> Tecnología usada en Voz Visible
+                </h3>
+                <div class="tech-grid">
+                    <div class="tech-card">
+                        <div class="tech-icon">
+                            <i class="fas fa-hand-pointer"></i>
+                        </div>
+                        <h4>MediaPipe Holistic</h4>
+                        <p>
+                            Utilizamos MediaPipe Holistic para la extracción precisa de puntos clave 
+                            del cuerpo, manos y rostro, permitiendo capturar la esencia de cada seña.
+                        </p>
+                    </div>
+
+                    <div class="tech-card">
+                        <div class="tech-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <h4>Redes Neuronales CNN y RNN</h4>
+                        <p>
+                            Nuestro modelo utiliza arquitecturas CNN para características espaciales 
+                            y RNN para secuencias temporales, sin LSTM, optimizado para velocidad y precisión.
+                        </p>
+                    </div>
+
+                    <div class="tech-card">
+                        <div class="tech-icon">
+                            <i class="fas fa-project-diagram"></i>
+                        </div>
+                        <h4>Traducción de Secuencias</h4>
+                        <p>
+                            El modelo traduce secuencias de movimientos en tiempo real, reconociendo 
+                            patrones complejos de la Lengua de Señas Colombiana (LSC).
+                        </p>
+                    </div>
+
+                    <div class="tech-card">
+                        <div class="tech-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <h4>IA Accesible</h4>
+                        <p>
+                            Elegimos estas arquitecturas por su balance entre precisión (98.75%) y 
+                            velocidad, haciendo la tecnología accesible sin requerir hardware costoso.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Curiosities Subsection -->
+            <div class="learn-subsection">
+                <h3 class="subsection-title">
+                    <i class="fas fa-lightbulb"></i> Datos curiosos sobre la comunidad sorda en Colombia
+                </h3>
+                <div class="curiosities-grid">
+                    <div class="curiosity-card">
+                        <h4>¿Cuántas personas sordas hay en Colombia?</h4>
+                        <p>
+                            Según el INSOR, se estima que hay aproximadamente <strong>500,000 personas sordas</strong> 
+                            en Colombia, representando cerca del 1% de la población.
+                        </p>
+                    </div>
+
+                    <div class="curiosity-card">
+                        <h4>Uso de la Lengua de Señas Colombiana (LSC)</h4>
+                        <p>
+                            Aproximadamente <strong>70% de la comunidad sorda</strong> utiliza LSC como 
+                            su lengua principal de comunicación, mientras que otros utilizan comunicación 
+                            oral o sistemas mixtos.
+                        </p>
+                    </div>
+
+                    <div class="curiosity-card">
+                        <h4>Diferencias entre LSC y otras lenguas de señas</h4>
+                        <p>
+                            La LSC es única y diferente a otras lenguas de señas como la ASL (americana) 
+                            o la LSE (española). Cada país desarrolla su propia lengua de señas con 
+                            gramática y vocabulario propios.
+                        </p>
+                    </div>
+
+                    <div class="curiosity-card">
+                        <h4>¿Cómo se crean nuevas señas?</h4>
+                        <p>
+                            Las nuevas señas surgen de la comunidad sorda misma, especialmente para 
+                            conceptos modernos. Se crean por consenso y se difunden a través de la 
+                            educación y la comunicación comunitaria.
+                        </p>
+                    </div>
+
+                    <div class="curiosity-card">
+                        <h4>¿Cómo se enseña la LSC?</h4>
+                        <p>
+                            La LSC se enseña principalmente en escuelas especializadas, programas 
+                            del INSOR, y a través de la comunidad sorda. Es fundamental aprender 
+                            de personas sordas nativas.
+                        </p>
+                    </div>
+
+                    <div class="curiosity-card">
+                        <h4>¿Sabías que la LSC tiene su propia gramática?</h4>
+                        <p>
+                            ¡Sí! La LSC tiene una estructura gramatical completamente diferente al español. 
+                            Utiliza el espacio, la dirección y la expresión facial como parte fundamental 
+                            de su sintaxis.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resources Subsection -->
+            <div class="learn-subsection">
+                <h3 class="subsection-title">
+                    <i class="fas fa-book"></i> Recursos para aprender Lengua de Señas
+                </h3>
+                <div class="resources-grid">
+                    <div class="resource-card">
+                        <div class="resource-icon">
+                            <i class="fab fa-youtube"></i>
+                        </div>
+                        <h4>Canales de YouTube</h4>
+                        <ul>
+                            <li>INSOR - Instituto Nacional para Sordos</li>
+                            <li>Señas Colombia</li>
+                            <li>Lengua de Señas Colombiana - Aprende LSC</li>
+                        </ul>
+                    </div>
+
+                    <div class="resource-card">
+                        <div class="resource-icon">
+                            <i class="fas fa-file-pdf"></i>
+                        </div>
+                        <h4>Recursos Oficiales</h4>
+                        <ul>
+                            <li>INSOR - Materiales educativos</li>
+                            <li>Diccionario de LSC (INSOR)</li>
+                            <li>Guías de aprendizaje básico</li>
+                        </ul>
+                        <a href="https://www.insor.gov.co" target="_blank" class="resource-link">
+                            Visitar INSOR <i class="fas fa-external-link-alt"></i>
+                        </a>
+                    </div>
+
+                    <div class="resource-card">
+                        <div class="resource-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <h4>Apps y Cursos</h4>
+                        <ul>
+                            <li>Apps móviles de aprendizaje LSC</li>
+                            <li>Cursos presenciales del INSOR</li>
+                            <li>Programas comunitarios</li>
+                        </ul>
+                    </div>
+
+                    <div class="resource-card">
+                        <div class="resource-icon">
+                            <i class="fas fa-lightbulb"></i>
+                        </div>
+                        <h4>Consejos para empezar</h4>
+                        <ul>
+                            <li>Practica con la comunidad sorda</li>
+                            <li>Usa recursos visuales y videos</li>
+                            <li>Practica la expresión facial</li>
+                            <li>Ten paciencia, es un proceso gradual</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo/Translation Section -->
+    <section id="demo" class="demo-section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Prueba Voz Visible</h2>
+                <p class="section-subtitle">Traduce lengua de señas en tiempo real</p>
+            </div>
+
+            <!-- Status Card -->
             <div class="status-card">
                 <h2><i class="fas fa-info-circle"></i> Estado del Sistema</h2>
                 <div id="status" class="status-indicator">
                     <i class="fas fa-spinner fa-spin"></i> Verificando...
                 </div>
-                <div class="demo-info">
-                    <p><i class="fas fa-info-circle"></i> <strong>Modo Demo:</strong> Las predicciones son simuladas para demostrar la interfaz</p>
+            </div>
+
+            <!-- Translation Interface -->
+            <div class="translation-interface">
+                <div class="translation-left">
+                    <div class="camera-container-demo">
+                        <div class="camera-options">
+                            <a href="/camera" class="btn btn-primary">
+                                <i class="fas fa-video"></i> Cámara en Tiempo Real
+                            </a>
+                            <button onclick="openImageUpload()" class="btn btn-secondary">
+                                <i class="fas fa-upload"></i> Subir Imagen
+                            </button>
+                        </div>
+                        <div class="camera-preview" id="cameraPreview">
+                            <i class="fas fa-camera"></i>
+                            <p>Selecciona una opción para comenzar</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="translation-right">
+                    <div class="translation-result">
+                        <h3><i class="fas fa-language"></i> Traducción</h3>
+                        <div class="translated-text-container">
+                            <div id="translatedText" class="translated-text">-</div>
+                        </div>
+                        <div class="translation-controls">
+                            <div class="confidence-display">
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" id="confidenceFill"></div>
+                                </div>
+                                <div class="confidence-text" id="confidenceText">Confianza: 0%</div>
+                            </div>
+                            <div class="tts-controls">
+                                <div class="tts-indicator" id="homeTTSIndicator" style="display: none;">
+                                    <i class="fas fa-volume-up tts-icon-animate"></i>
+                                    <span>Reproduciendo audio...</span>
+                                </div>
+                                <button class="btn btn-info btn-small" id="homeRepeatAudioBtn" onclick="repeatLastAudio()" style="display: none;" title="Repetir audio">
+                                    <i class="fas fa-redo"></i> Repetir Audio
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="translation-history">
+                        <div class="history-header">
+                            <h4><i class="fas fa-history"></i> Historial</h4>
+                            <button class="btn btn-secondary btn-small" onclick="clearPredictionHistory()">
+                                <i class="fas fa-trash"></i> Limpiar
+                            </button>
+                        </div>
+                        <ul id="homePredictionHistoryList" class="history-list">
+                            <li class="history-empty">Aún no hay traducciones</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer-main">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3><i class="fas fa-hands"></i> VOZ VISIBLE</h3>
+                    <p>
+                        Tecnología de traducción de lengua de señas colombiana 
+                        desarrollada por estudiantes para la comunidad sorda.
+                    </p>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Enlaces</h4>
+                    <ul class="footer-links">
+                        <li><a href="#hero">Inicio</a></li>
+                        <li><a href="#about">Sobre Nosotros</a></li>
+                        <li><a href="#learn">Aprende Más</a></li>
+                        <li><a href="#demo">Probar Demo</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Contacto</h4>
+                    <ul class="footer-links">
+                        <li>
+                            <a href="mailto:tomasgonzalez0411@gmail.com">
+                                <i class="fas fa-envelope"></i> tomasgonzalez0411@gmail.com
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://github.com" target="_blank">
+                                <i class="fab fa-github"></i> GitHub
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Proyecto</h4>
+                    <p class="footer-disclaimer">
+                        <i class="fas fa-info-circle"></i> 
+                        Desarrollado por Tomás González y equipo Voz Visible.<br>
+                        Uso educativo y sin fines de lucro.
+                    </p>
                 </div>
             </div>
 
-            <div class="action-cards">
-                <div class="card">
-                    <div class="card-icon">
-                        <i class="fas fa-video"></i>
-                    </div>
-                    <h3>Cámara en Tiempo Real</h3>
-                    <p>Reconocimiento continuo desde tu cámara web (simulado)</p>
-                    <a href="/camera" class="btn btn-primary">
-                        <i class="fas fa-play"></i> Iniciar Cámara
-                    </a>
-                </div>
-
-                <div class="card">
-                    <div class="card-icon">
-                        <i class="fas fa-upload"></i>
-                    </div>
-                    <h3>Subir Imagen</h3>
-                    <p>Analiza una imagen específica (simulado)</p>
-                    <button onclick="openImageUpload()" class="btn btn-secondary">
-                        <i class="fas fa-upload"></i> Subir Imagen
-                    </button>
-                </div>
-
-                <div class="card">
-                    <div class="card-icon">
-                        <i class="fas fa-info"></i>
-                    </div>
-                    <h3>Información</h3>
-                    <p>Conoce más sobre el proyecto</p>
-                    <button onclick="showInfo()" class="btn btn-info">
-                        <i class="fas fa-info"></i> Ver Info
-                    </button>
-                </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 VOZ VISIBLE - Reconocimiento de Lenguaje de Señas Colombiano</p>
+                <p class="footer-credit">
+                    Colegio José Elías Puyana - Jornada Sabatina
+                </p>
             </div>
-
-            <div class="prediction-area" id="predictionArea" style="display: none;">
-                <h2><i class="fas fa-brain"></i> Resultado de Predicción</h2>
-                <div class="prediction-result">
-                    <div class="predicted-word" id="predictedWord">-</div>
-                    <div class="confidence-bar">
-                        <div class="confidence-fill" id="confidenceFill"></div>
-                    </div>
-                    <div class="confidence-text" id="confidenceText">0%</div>
-                    <div class="demo-notice">
-                        <i class="fas fa-flask"></i> Resultado simulado para demostración
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <footer class="footer">
-            <p>&copy; 2024 VOZ VISIBLE - Reconocimiento de Lenguaje de Señas Colombiano</p>
-        </footer>
-    </div>
+        </div>
+    </footer>
 
     <!-- Modal para subir imagen -->
     <div id="imageUploadModal" class="modal">

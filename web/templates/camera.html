@@ -9,7 +9,24 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 <body>
-    <div class="container">
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-hands"></i> VOZ VISIBLE
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Inicio</a>
+                <a href="/#about" class="nav-link">Sobre Nosotros</a>
+                <a href="/#learn" class="nav-link">Aprende Más</a>
+                <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="margin-top: 80px;">
         <header class="header">
             <h1><i class="fas fa-video"></i> Cámara en Tiempo Real</h1>
             <p>Reconocimiento de lenguaje de señas colombiano desde tu cámara</p>
@@ -22,6 +39,7 @@
             <div class="camera-container">
                 <div class="video-container">
                     <video id="cameraVideo" autoplay muted playsinline></video>
+                    <canvas id="landmarksCanvas" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
                     <canvas id="captureCanvas" style="display: none;"></canvas>
                     <div id="cameraPlaceholder" class="camera-placeholder">
                         <i class="fas fa-video"></i>
@@ -37,6 +55,15 @@
                         <div class="confidence-fill" id="cameraConfidenceFill"></div>
                     </div>
                     <div class="confidence-text" id="cameraConfidenceText">0%</div>
+                    <div class="tts-controls">
+                        <div class="tts-indicator" id="cameraTTSIndicator" style="display: none;">
+                            <i class="fas fa-volume-up tts-icon-animate"></i>
+                            <span>Reproduciendo audio...</span>
+                        </div>
+                        <button class="btn btn-info btn-small" id="cameraRepeatAudioBtn" onclick="repeatLastAudio()" style="display: none;" title="Repetir audio">
+                            <i class="fas fa-redo"></i> Repetir Audio
+                        </button>
+                    </div>
                     <div class="fps-counter">
                         FPS: <span id="fpsCounter">0</span>
                     </div>
@@ -52,6 +79,9 @@
                 </button>
                 <button onclick="togglePrediction()" class="btn btn-info">
                     <i class="fas fa-brain"></i> Toggle Predicción
+                </button>
+                <button id="toggleLandmarksBtn" onclick="toggleLandmarks()" class="btn btn-secondary">
+                    <i class="fas fa-draw-polygon"></i> <span id="landmarksBtnText">Mostrar Landmarks</span>
                 </button>
                 <button onclick="captureImage()" class="btn btn-success">
                     <i class="fas fa-camera"></i> Capturar
@@ -75,10 +105,74 @@
                     <span id="lastUpdate" class="stat-value">-</span>
                 </div>
             </div>
+
+            <div class="history-panel">
+                <div class="history-header">
+                    <h3><i class="fas fa-history"></i> Historial de Predicciones</h3>
+                    <button class="btn btn-secondary btn-small" onclick="clearPredictionHistory()">
+                        <i class="fas fa-trash"></i> Limpiar
+                    </button>
+                </div>
+                <ul id="predictionHistoryList" class="history-list">
+                    <li class="history-empty">Aún no hay predicciones</li>
+                </ul>
+            </div>
         </main>
 
-        <footer class="footer">
-            <p>&copy; 2024 VOZ VISIBLE - Reconocimiento de Lenguaje de Señas Colombiano</p>
+        <footer class="footer-main">
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-section">
+                        <h3><i class="fas fa-hands"></i> VOZ VISIBLE</h3>
+                        <p>
+                            Tecnología de traducción de lengua de señas colombiana 
+                            desarrollada por estudiantes para la comunidad sorda.
+                        </p>
+                    </div>
+
+                    <div class="footer-section">
+                        <h4>Enlaces</h4>
+                        <ul class="footer-links">
+                            <li><a href="/">Inicio</a></li>
+                            <li><a href="/#about">Sobre Nosotros</a></li>
+                            <li><a href="/#learn">Aprende Más</a></li>
+                            <li><a href="/#demo">Probar Demo</a></li>
+                        </ul>
+                    </div>
+
+                    <div class="footer-section">
+                        <h4>Contacto</h4>
+                        <ul class="footer-links">
+                            <li>
+                                <a href="mailto:tomasgonzalez0411@gmail.com">
+                                    <i class="fas fa-envelope"></i> tomasgonzalez0411@gmail.com
+                                </a>
+                            </li>
+                            <li>
+                                <a href="https://github.com" target="_blank">
+                                    <i class="fab fa-github"></i> GitHub
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="footer-section">
+                        <h4>Proyecto</h4>
+                        <p class="footer-disclaimer">
+                            <i class="fas fa-info-circle"></i> 
+                            Desarrollado por Tomás González y equipo Voz Visible.<br>
+                            Uso educativo y sin fines de lucro.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="footer-bottom">
+                    <p>&copy; 2024 VOZ VISIBLE - Reconocimiento de Lenguaje de Señas Colombiano</p>
+                    <p class="footer-credit">
+                        Colegio José Elías Puyana - Jornada Sabatina
+                    </p>
+                </div>
+            </div>
         </footer>
     </div>
 
@@ -88,14 +182,24 @@
         let cameraStream = null;
         let isCapturing = false;
         let isPredictionEnabled = true;
+        let showLandmarks = false;
         let predictionCount = 0;
         let lastFrameTime = 0;
         let fps = 0;
+        let lastAudioData = null;
+        let currentAudio = null;
+        const MAX_HISTORY_ITEMS = 12;
+        const predictionHistory = [];
 
         // Inicializar aplicación
         document.addEventListener('DOMContentLoaded', function() {
             initializeSocket();
             checkSystemStatus();
+            // Cargar preferencia de landmarks desde localStorage
+            showLandmarks = localStorage.getItem('showLandmarks') === 'true';
+            updateLandmarksToggle();
+            // Inicializar tema
+            initializeTheme();
         });
 
         // Inicializar Socket.IO
@@ -121,6 +225,16 @@
                     updateCameraPrediction(data.word, data.confidence);
                     predictionCount++;
                     updateStats();
+                    addPredictionToHistory({
+                        word: data.word,
+                        confidence: data.confidence,
+                        timestamp: data.timestamp
+                    });
+                    
+                    // Dibujar landmarks si están disponibles y están activados
+                    if (data.landmarks && showLandmarks) {
+                        drawLandmarks(data.landmarks);
+                    }
                     
                     // Reproducir audio TTS si está disponible
                     if (data.audio) {
@@ -231,12 +345,22 @@
             // Enviar frame al servidor (cada 200ms para no saturar)
             const currentTime = Date.now();
             if (currentTime - lastFrameTime > 200) {
-                socket.emit('process_frame', { frame: imageData });
+                socket.emit('process_frame', { 
+                    frame: imageData,
+                    include_landmarks: showLandmarks
+                });
                 lastFrameTime = currentTime;
                 
                 // Calcular FPS
                 fps = Math.round(1000 / (currentTime - lastFrameTime + 200));
                 document.getElementById('fpsCounter').textContent = fps;
+            }
+            
+            // Ajustar tamaño del canvas de landmarks si está visible
+            if (showLandmarks) {
+                const landmarksCanvas = document.getElementById('landmarksCanvas');
+                landmarksCanvas.width = video.videoWidth || 640;
+                landmarksCanvas.height = video.videoHeight || 480;
             }
             
             // Continuar capturando
@@ -275,17 +399,237 @@
             link.click();
         }
 
-        // Reproducir audio TTS
+        // Historial de predicciones
+        function addPredictionToHistory(entry) {
+            const newEntry = {
+                word: entry.word || '-',
+                confidence: typeof entry.confidence === 'number' ? entry.confidence : 0,
+                timestamp: entry.timestamp || Date.now() / 1000
+            };
+            predictionHistory.unshift(newEntry);
+            if (predictionHistory.length > MAX_HISTORY_ITEMS) {
+                predictionHistory.pop();
+            }
+            renderPredictionHistory();
+        }
+
+        function renderPredictionHistory() {
+            const list = document.getElementById('predictionHistoryList');
+            list.innerHTML = '';
+
+            if (!predictionHistory.length) {
+                list.innerHTML = '<li class="history-empty">Aún no hay predicciones</li>';
+                return;
+            }
+
+            predictionHistory.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.innerHTML = `
+                    <div class="history-word">${item.word}</div>
+                    <div class="history-meta">
+                        <div>${formatConfidence(item.confidence)}</div>
+                        <small>${formatTimestamp(item.timestamp)}</small>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function clearPredictionHistory() {
+            predictionHistory.length = 0;
+            renderPredictionHistory();
+        }
+
+        function formatConfidence(confidence) {
+            const percent = Math.round(confidence * 100);
+            return `${percent}% confianza`;
+        }
+
+        function formatTimestamp(timestamp) {
+            const date = new Date(typeof timestamp === 'number' && timestamp < 1e12 ? timestamp * 1000 : timestamp);
+            return date.toLocaleTimeString();
+        }
+
+        // Toggle visualización de landmarks
+        function toggleLandmarks() {
+            showLandmarks = !showLandmarks;
+            localStorage.setItem('showLandmarks', showLandmarks.toString());
+            updateLandmarksToggle();
+            
+            // Limpiar canvas si se desactiva
+            if (!showLandmarks) {
+                const landmarksCanvas = document.getElementById('landmarksCanvas');
+                const ctx = landmarksCanvas.getContext('2d');
+                ctx.clearRect(0, 0, landmarksCanvas.width, landmarksCanvas.height);
+            }
+        }
+        
+        // Actualizar UI del toggle de landmarks
+        function updateLandmarksToggle() {
+            const btn = document.getElementById('toggleLandmarksBtn');
+            const text = document.getElementById('landmarksBtnText');
+            const landmarksCanvas = document.getElementById('landmarksCanvas');
+            
+            if (showLandmarks) {
+                btn.className = 'btn btn-success';
+                text.textContent = 'Ocultar Landmarks';
+                landmarksCanvas.style.display = 'block';
+            } else {
+                btn.className = 'btn btn-secondary';
+                text.textContent = 'Mostrar Landmarks';
+                landmarksCanvas.style.display = 'none';
+            }
+        }
+        
+        // Dibujar landmarks en el canvas
+        function drawLandmarks(landmarks) {
+            const canvas = document.getElementById('landmarksCanvas');
+            const ctx = canvas.getContext('2d');
+            const video = document.getElementById('cameraVideo');
+            
+            // Limpiar canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Asegurar que el canvas tenga el tamaño correcto
+            if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+                canvas.width = video.videoWidth || 640;
+                canvas.height = video.videoHeight || 480;
+            }
+            
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // Dibujar landmarks de pose (cuerpo)
+            if (landmarks.pose && landmarks.pose.length > 0) {
+                ctx.strokeStyle = '#00ff00';
+                ctx.fillStyle = '#00ff00';
+                ctx.lineWidth = 2;
+                
+                landmarks.pose.forEach((point, index) => {
+                    if (point.visibility > 0.5) {
+                        const x = point.x * width;
+                        const y = point.y * height;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                        ctx.fill();
+                    }
+                });
+            }
+            
+            // Dibujar landmarks de mano derecha
+            if (landmarks.right_hand && landmarks.right_hand.length > 0) {
+                ctx.strokeStyle = '#ff0000';
+                ctx.fillStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                
+                // Dibujar puntos
+                landmarks.right_hand.forEach((point) => {
+                    const x = point.x * width;
+                    const y = point.y * height;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+                
+                // Conectar puntos de la mano (simplificado)
+                if (landmarks.right_hand.length >= 5) {
+                    ctx.beginPath();
+                    ctx.moveTo(landmarks.right_hand[0].x * width, landmarks.right_hand[0].y * height);
+                    for (let i = 1; i < 5; i++) {
+                        ctx.lineTo(landmarks.right_hand[i].x * width, landmarks.right_hand[i].y * height);
+                    }
+                    ctx.stroke();
+                }
+            }
+            
+            // Dibujar landmarks de mano izquierda
+            if (landmarks.left_hand && landmarks.left_hand.length > 0) {
+                ctx.strokeStyle = '#0000ff';
+                ctx.fillStyle = '#0000ff';
+                ctx.lineWidth = 2;
+                
+                // Dibujar puntos
+                landmarks.left_hand.forEach((point) => {
+                    const x = point.x * width;
+                    const y = point.y * height;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+                
+                // Conectar puntos de la mano (simplificado)
+                if (landmarks.left_hand.length >= 5) {
+                    ctx.beginPath();
+                    ctx.moveTo(landmarks.left_hand[0].x * width, landmarks.left_hand[0].y * height);
+                    for (let i = 1; i < 5; i++) {
+                        ctx.lineTo(landmarks.left_hand[i].x * width, landmarks.left_hand[i].y * height);
+                    }
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        // Reproducir audio TTS con feedback visual
         function playTTSAudio(audioData) {
             if (!audioData) return;
             
+            // Guardar último audio para repetir
+            lastAudioData = audioData;
+            
+            // Mostrar indicador de TTS
+            const ttsIndicator = document.getElementById('cameraTTSIndicator');
+            const repeatBtn = document.getElementById('cameraRepeatAudioBtn');
+            
+            if (ttsIndicator) {
+                ttsIndicator.style.display = 'flex';
+            }
+            if (repeatBtn) {
+                repeatBtn.style.display = 'inline-block';
+            }
+            
             try {
-                const audio = new Audio(audioData);
-                audio.play().catch(error => {
+                // Detener audio anterior si está reproduciéndose
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                }
+                
+                currentAudio = new Audio(audioData);
+                
+                // Ocultar indicador cuando termine
+                currentAudio.addEventListener('ended', function() {
+                    if (ttsIndicator) {
+                        ttsIndicator.style.display = 'none';
+                    }
+                });
+                
+                // Manejar errores
+                currentAudio.addEventListener('error', function(e) {
+                    console.warn('Error reproduciendo audio:', e);
+                    if (ttsIndicator) {
+                        ttsIndicator.style.display = 'none';
+                    }
+                });
+                
+                currentAudio.play().catch(error => {
                     console.warn('Error reproduciendo audio:', error);
+                    if (ttsIndicator) {
+                        ttsIndicator.style.display = 'none';
+                    }
                 });
             } catch (error) {
                 console.warn('Error creando audio:', error);
+                if (ttsIndicator) {
+                    ttsIndicator.style.display = 'none';
+                }
+            }
+        }
+        
+        // Repetir último audio reproducido
+        function repeatLastAudio() {
+            if (lastAudioData) {
+                playTTSAudio(lastAudioData);
             }
         }
 
@@ -341,6 +685,36 @@
                 'missing_files': 'times-circle'
             };
             return icons[status] || 'question-circle';
+        }
+
+        // Gestión de tema (modo claro/oscuro)
+        function initializeTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            applyTheme(savedTheme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        function applyTheme(theme) {
+            const body = document.body;
+            const themeIcon = document.getElementById('themeIcon');
+            
+            if (theme === 'dark') {
+                body.classList.add('dark-theme');
+                if (themeIcon) {
+                    themeIcon.className = 'fas fa-sun';
+                }
+            } else {
+                body.classList.remove('dark-theme');
+                if (themeIcon) {
+                    themeIcon.className = 'fas fa-moon';
+                }
+            }
         }
 
         // Limpiar recursos al cerrar
