@@ -1,20 +1,32 @@
-# Node.js
+# ---- Node.js ----
 node_modules/
 dist/
 .env
-env/
 
-# Python
+# ---- Python ----
+env/
 venv/
+ENV/
+.venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# VS Code / Sistema
+# ---- Build / paquetes ----
+*.egg-info/
+*.egg
+*.whl
+
+# ---- VS Code / Sistema ----
 .vscode/
 .DS_Store
+Thumbs.db
 
-# Cache y archivos temporales
+# ---- Archivos temporales / cache ----
 data/cache/
 *.mp3
 web/uploads/
 *.log
+.cache/
+.tmp/
