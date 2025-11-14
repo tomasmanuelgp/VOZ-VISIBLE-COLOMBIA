@@ -107,7 +107,7 @@ async function analyzeImage() {
         const data = await response.json();
         
         if (data.status === 'success') {
-            showPrediction(data.word, data.confidence);
+            showPrediction(data.word, data.confidence, data.audio);
             closeImageUpload();
         } else {
             alert('Error en la predicción: ' + data.message);
@@ -120,8 +120,22 @@ async function analyzeImage() {
     }
 }
 
+// Reproducir audio TTS
+function playTTSAudio(audioData) {
+    if (!audioData) return;
+    
+    try {
+        const audio = new Audio(audioData);
+        audio.play().catch(error => {
+            console.warn('Error reproduciendo audio:', error);
+        });
+    } catch (error) {
+        console.warn('Error creando audio:', error);
+    }
+}
+
 // Mostrar resultado de predicción
-function showPrediction(word, confidence) {
+function showPrediction(word, confidence, audioData = null) {
     const predictionArea = document.getElementById('predictionArea');
     const predictedWord = document.getElementById('predictedWord');
     const confidenceFill = document.getElementById('confidenceFill');
@@ -145,6 +159,11 @@ function showPrediction(word, confidence) {
         confidenceFill.className = 'confidence-fill medium';
     } else {
         confidenceFill.className = 'confidence-fill low';
+    }
+    
+    // Reproducir audio TTS si está disponible
+    if (audioData) {
+        playTTSAudio(audioData);
     }
     
     // Scroll a la predicción

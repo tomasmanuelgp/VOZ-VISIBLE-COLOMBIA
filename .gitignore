@@ -11,3 +11,9 @@ __pycache__/
 # VS Code / Sistema
 .vscode/
 .DS_Store
+
+# Cache y archivos temporales
+data/cache/
+*.mp3
+web/uploads/
+*.log

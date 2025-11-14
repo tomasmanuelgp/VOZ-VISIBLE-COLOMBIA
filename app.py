@@ -96,8 +96,19 @@ app.config['SECRET_KEY'] = 'voz-visible-secret-key-2024'
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# Importar TTS
+try:
+    from tts.voice_synthesizer import VoiceSynthesizer
+    TTS_AVAILABLE = True
+    print("✅ VoiceSynthesizer disponible")
+except ImportError as e:
+    TTS_AVAILABLE = False
+    VoiceSynthesizer = None
+    print(f"⚠️ VoiceSynthesizer no disponible: {e}")
+
 # Variables globales
 predictor = None
+voice_synthesizer = None
 system_status = "initializing"
 current_prediction = {"word": "Iniciando...", "confidence": 0.0}
 
@@ -107,9 +118,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def initialize_predictor():
     """
-    Inicializar el predictor de lenguaje de señas colombiano
+    Inicializar el predictor de lenguaje de señas colombiano y TTS
     """
-    global predictor, system_status
+    global predictor, voice_synthesizer, system_status
     
     try:
         print("🤖 Inicializando sistema de predicción...")
@@ -136,6 +147,19 @@ def initialize_predictor():
             label_encoder_path=label_encoder_path,
             feature_info_path=feature_info_path
         )
+        
+        # Inicializar TTS
+        if TTS_AVAILABLE and VoiceSynthesizer:
+            try:
+                voice_synthesizer = VoiceSynthesizer(
+                    cache_dir="data/cache/tts",
+                    language="es-co",  # Español colombiano
+                    slow=False
+                )
+                print("✅ Sistema de TTS inicializado correctamente")
+            except Exception as e:
+                print(f"⚠️ Error inicializando TTS: {e}")
+                voice_synthesizer = None
         
         system_status = "ready"
         print("✅ Sistema de predicción inicializado correctamente")
@@ -211,12 +235,28 @@ def api_predict():
             
             if success:
                 current_prediction = {"word": prediction, "confidence": confidence}
-                return jsonify({
+                
+                # Generar audio TTS si está disponible
+                audio_data = None
+                if voice_synthesizer:
+                    try:
+                        audio_bytes, tts_error = voice_synthesizer.text_to_speech(prediction)
+                        if not tts_error and audio_bytes:
+                            audio_data = base64.b64encode(audio_bytes).decode('utf-8')
+                    except Exception as e:
+                        print(f"⚠️ Error generando TTS: {e}")
+                
+                response_data = {
                     'status': 'success',
                     'word': prediction,
                     'confidence': float(confidence),
                     'timestamp': time.time()
-                })
+                }
+                
+                if audio_data:
+                    response_data['audio'] = f'data:audio/mpeg;base64,{audio_data}'
+                
+                return jsonify(response_data)
             else:
                 return jsonify({
                     'status': 'error',
@@ -284,12 +324,27 @@ def api_upload():
         os.remove(filepath)
         
         if success:
-            return jsonify({
+            # Generar audio TTS si está disponible
+            audio_data = None
+            if voice_synthesizer:
+                try:
+                    audio_bytes, tts_error = voice_synthesizer.text_to_speech(prediction)
+                    if not tts_error and audio_bytes:
+                        audio_data = base64.b64encode(audio_bytes).decode('utf-8')
+                except Exception as e:
+                    print(f"⚠️ Error generando TTS: {e}")
+            
+            response_data = {
                 'status': 'success',
                 'word': prediction,
                 'confidence': float(confidence),
                 'timestamp': time.time()
-            })
+            }
+            
+            if audio_data:
+                response_data['audio'] = f'data:audio/mpeg;base64,{audio_data}'
+            
+            return jsonify(response_data)
         else:
             return jsonify({
                 'status': 'error',
@@ -316,6 +371,124 @@ def api_model_info():
             'status': 'error',
             'message': 'Predictor no inicializado'
         })
+
+@app.route('/api/tts', methods=['POST'])
+def api_tts():
+    """
+    Generar audio de texto a voz (TTS)
+    
+    Body JSON:
+    {
+        "text": "Texto a convertir a voz",
+        "format": "base64" | "url" (opcional, default: "base64")
+    }
+    """
+    if not voice_synthesizer:
+        return jsonify({
+            'status': 'error',
+            'message': 'Sistema TTS no disponible'
+        }), 503
+    
+    try:
+        data = request.get_json()
+        
+        if not data or 'text' not in data:
+            return jsonify({
+                'status': 'error',
+                'message': 'Se requiere el campo "text"'
+            }), 400
+        
+        text = data['text'].strip()
+        if not text:
+            return jsonify({
+                'status': 'error',
+                'message': 'El texto no puede estar vacío'
+            }), 400
+        
+        format_type = data.get('format', 'base64')
+        
+        # Generar audio
+        audio_bytes, error = voice_synthesizer.text_to_speech(text)
+        
+        if error:
+            return jsonify({
+                'status': 'error',
+                'message': error
+            }), 500
+        
+        if format_type == 'base64':
+            # Devolver como base64
+            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+            return jsonify({
+                'status': 'success',
+                'audio': f'data:audio/mpeg;base64,{audio_base64}',
+                'text': text,
+                'timestamp': time.time()
+            })
+        else:
+            # Devolver URL del archivo (guardado en cache)
+            file_path, error = voice_synthesizer.text_to_speech_file(text)
+            if error:
+                return jsonify({
+                    'status': 'error',
+                    'message': error
+                }), 500
+            
+            # Crear URL relativa
+            audio_url = f'/api/tts/file/{os.path.basename(file_path)}'
+            return jsonify({
+                'status': 'success',
+                'audio_url': audio_url,
+                'text': text,
+                'timestamp': time.time()
+            })
+            
+    except Exception as e:
+        print(f"❌ Error en TTS: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Error generando audio',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/tts/file/<filename>')
+def api_tts_file(filename):
+    """
+    Servir archivo de audio desde cache
+    """
+    if not voice_synthesizer:
+        return jsonify({
+            'status': 'error',
+            'message': 'Sistema TTS no disponible'
+        }), 503
+    
+    try:
+        cache_path = voice_synthesizer.cache_dir / filename
+        if not cache_path.exists():
+            return jsonify({
+                'status': 'error',
+                'message': 'Archivo no encontrado'
+            }), 404
+        
+        with open(cache_path, 'rb') as f:
+            audio_data = f.read()
+        
+        return Response(
+            audio_data,
+            mimetype='audio/mpeg',
+            headers={
+                'Content-Disposition': f'inline; filename="{filename}"',
+                'Cache-Control': 'public, max-age=31536000'  # Cache por 1 año
+            }
+        )
+        
+    except Exception as e:
+        print(f"❌ Error sirviendo archivo TTS: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Error sirviendo archivo',
+            'error': str(e)
+        }), 500
 
 # WebSocket Events
 @socketio.on('connect')
@@ -371,12 +544,27 @@ def handle_process_frame(data):
         prediction, confidence, success = predictor.predict_realtime(cv_image)
         
         if success:
-            emit('prediction', {
+            # Generar audio TTS si está disponible
+            audio_data = None
+            if voice_synthesizer:
+                try:
+                    audio_bytes, tts_error = voice_synthesizer.text_to_speech(prediction)
+                    if not tts_error and audio_bytes:
+                        audio_data = base64.b64encode(audio_bytes).decode('utf-8')
+                except Exception as e:
+                    print(f"⚠️ Error generando TTS: {e}")
+            
+            prediction_data = {
                 'status': 'success',
                 'word': prediction,
                 'confidence': float(confidence),
                 'timestamp': time.time()
-            })
+            }
+            
+            if audio_data:
+                prediction_data['audio'] = f'data:audio/mpeg;base64,{audio_data}'
+            
+            emit('prediction', prediction_data)
         else:
             emit('prediction', {
                 'status': 'error',

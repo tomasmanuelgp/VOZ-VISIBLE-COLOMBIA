@@ -121,6 +121,11 @@
                     updateCameraPrediction(data.word, data.confidence);
                     predictionCount++;
                     updateStats();
+                    
+                    // Reproducir audio TTS si está disponible
+                    if (data.audio) {
+                        playTTSAudio(data.audio);
+                    }
                 } else {
                     console.error('Error en predicción:', data.message);
                 }
@@ -268,6 +273,20 @@
             link.download = `voz-visible-capture-${Date.now()}.jpg`;
             link.href = canvas.toDataURL('image/jpeg', 0.9);
             link.click();
+        }
+
+        // Reproducir audio TTS
+        function playTTSAudio(audioData) {
+            if (!audioData) return;
+            
+            try {
+                const audio = new Audio(audioData);
+                audio.play().catch(error => {
+                    console.warn('Error reproduciendo audio:', error);
+                });
+            } catch (error) {
+                console.warn('Error creando audio:', error);
+            }
         }
 
         // Actualizar predicción de cámara

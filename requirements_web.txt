@@ -22,3 +22,7 @@ flask-socketio==5.3.6
 tqdm==4.66.1
 python-dotenv==1.0.0
 pillow==10.0.1
+
+# Text-to-Speech
+gtts==2.5.1
+pygame==2.5.2
